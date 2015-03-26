@@ -1,56 +1,79 @@
-library("dplyr")
-
-courts_h <- readRDS("data//courts_hierarchy.RDS")
 
 shinyUI(
-  navbarPage("Trendy",
-             tabPanel("Sądy powszechne",
-                      tabsetPanel(
-                        tabPanel("Mapy", 
-                                 sidebarLayout(
-                                   sidebarPanel(selectInput("map_level",
-                                                            "Poziom mapy:",
-                                                            c("Apelacje" = "appeal",
-                                                              "Regiony" = "region")),
-                                                conditionalPanel("input.map_level == 'region'",
-                                                                 selectInput("map_level2",
-                                                                             "Apelacja:",
-                                                                             c("Wszystkie", filter(courts_h, type == "APPEAL")$appeal_name))
-                                                                 ),
-                                                "Na poziomie regionów sądy apelacyjne nie są uwzględnione"
-                                   ),
-                                   mainPanel(plotOutput(outputId = "map_plot"),
-                                             plotOutput(outputId = "map_ggplot"))
-                                 )
-                        ),
-                        tabPanel("Stats",
-                                 sidebarLayout(
-                                   sidebarPanel(selectInput("stats_court",
-                                                            "Wybór apelacji",
-                                                            c("Wszystkie", filter(courts_h, type == "APPEAL")$appeal_name),
-                                                            "Wszystkie"),
-                                                
-                                                conditionalPanel("input.stats_court != 'Wszystkie'",
-                                                                 uiOutput("regions_in_appeal"),
-                                                                 
-                                                                 conditionalPanel("input.stats_court2 != 'Wszystkie'",
-                                                                                  uiOutput("courts_in_region")),
-                                                                 
-                                                                 conditionalPanel("input.stats_court2 == 'Wszystkie'",
-                                                                                  uiOutput("all_courts2"))
-                                                ),
-                                                
-                                                conditionalPanel("input.stats_court == 'Wszystkie'",
-                                                                 uiOutput("all_courts"))
-                                   ),
-                                   
-                                   mainPanel(plotOutput("court_trends"))
-                                 )
-                        )
-                      )
-             ),
-             tabPanel("Sąd Najwyższy", "coś tu będzie"),
-             tabPanel("Trybunał Konstytucyjny", "coś tu będzie")
+  navbarPage(
+    # page title
+    "Trendy",
+    
+    # tab with common courts -> another tabs are nested
+    tabPanel(
+      # title for common courts tab
+      "Sądy powszechne",
+      
+      tabsetPanel(
+        # tab for showing maps
+        tabPanel(
+          "Mapy",
+          sidebarLayout(
+            sidebarPanel(
+              # choose level of map
+              selectInput("map_level",
+                          "Poziom mapy:",
+                          c("Apelacje" = "appeal", "Regiony" = "region"),
+                          "appeal"),
+              
+              # if region is chosen, choose which appeal to show
+              conditionalPanel(
+                "input.map_level == 'region'",
+                selectInput("map_level2",
+                            "Apelacja:",
+                            c("Wszystkie", dplyr::filter(courts_h, type == "APPEAL")$appeal_name),
+                            "Wszystkie")
+              ),
+              
+              "Na poziomie regionów sądy apelacyjne nie są uwzględnione"
+            ),
+            
+            mainPanel(plotOutput(outputId = "map_plot"),
+                      plotOutput(outputId = "map_ggplot"),
+                      "potencjalne użycie leaflet")
+          )
+        ),
+        
+        # tab for showing trends in court
+        tabPanel(
+          "Stats",
+          sidebarLayout(
+            # quite complicated because it dynamically creates list of courts
+            sidebarPanel(
+              # choose appeal, or all
+              selectInput("cc_stats_appeal", 
+                          "Wybór apelacji", 
+                          c("Wszystkie", courts_h[courts_h$type == "APPEAL", "appeal_name"]),
+                          "Wszystkie"),
+              
+              # if appeal is chosen, list available regions
+              conditionalPanel(
+                "input.cc_stats_appeal != 'Wszystkie'",
+                uiOutput("cc_stats_region")
+              ),
+              
+              # list available courts
+              uiOutput("cc_stats_court")
+            ),
+            
+            mainPanel(
+              plotOutput("court_trends")
+            )
+          )
+        )
+      )
+    ),
+    
+    # tab for supreme court
+    tabPanel("Sąd Najwyższy", "coś tu będzie"),
+    
+    # tab for constitutional tribune
+    tabPanel("Trybunał Konstytucyjny", "coś tu będzie")
   )
 )
 

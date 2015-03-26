@@ -2,8 +2,10 @@ library("sp")
 library("rgeos")
 library("ggplot2")
 library("saos")
-data(courts)
-courts_h <- readRDS("data//courts_hierarchy.RDS")
+library("dplyr")
+
+#data(courts)
+#courts_h <- readRDS("data//courts_hierarchy.RDS")
 
 count_by_month <- readRDS("data/count_by_month.RDS")
 shp_appeal <- readRDS("data//cc_sp_appeal_simple.RDS")
@@ -22,28 +24,26 @@ count_by_month <- inner_join(count_by_month,
                              select(courts_h, id, appeal, region),
                              by = c("court_id" = "id"))
 
+count_by_month %>%
+  group_by(appeal) %>%
+  summarise(count = sum(count)) -> count_appeal
+
+count_by_month %>%
+  group_by(region) %>%
+  summarise(count = sum(count)) -> count_region
+
+
 
 shinyServer(function(input, output) {
-  count_appeal <- reactive({
-    count_by_month %>%
-      group_by(appeal) %>%
-      summarise(count = sum(count))
-  })
-
-  count_region <- reactive({
-    count_by_month %>%
-      group_by(region) %>%
-      summarise(count = sum(count))
-  })
-    
+  
   output$map_plot <- renderPlot({
     if (input$map_level == "appeal"){
-      tmp <- count_appeal()
+      tmp <- count_appeal
       
       shp_appeal@data$count <- tmp$count
       spplot(shp_appeal, zcol = "count")
     } else {
-      tmp <- count_region()
+      tmp <- count_region
       shp_region@data <- inner_join(shp_region@data, tmp, by = "region")
       if (input$map_level2 != "Wszystkie") {
         regions <- unique(filter(courts_h, appeal_name == input$map_level2)$region)
@@ -56,7 +56,7 @@ shinyServer(function(input, output) {
   
   output$map_ggplot <- renderPlot({
     if (input$map_level == "appeal"){
-      tmp <- count_appeal()
+      tmp <- count_appeal
       appeal_f <- inner_join(appeal_f, tmp, by = c("id" = "appeal"))
       ggplot(appeal_f, aes(long, lat, group = group, fill = count)) +
         geom_polygon() +
@@ -64,7 +64,7 @@ shinyServer(function(input, output) {
         theme_own +
         coord_map()
     } else {
-      tmp <- count_region()
+      tmp <- count_region
       region_f <- inner_join(region_f, tmp, by = c("id" = "region"))
       if (input$map_level2 != "Wszystkie") {
         regions <- unique(filter(courts_h, appeal_name == input$map_level2)$region)
@@ -79,58 +79,44 @@ shinyServer(function(input, output) {
     }
   })
   
-  output$regions_in_appeal <- renderUI({
-    tmp <- filter(courts_h, appeal_name == input$stats_court)$region_name
+  ## STATS TAB
+  
+  # conditional slider - if an particular appeal is chosen, choose between all 
+  # all regions or particular region, within chosen appeal
+  output$cc_stats_region <- renderUI({
+    tmp <- courts_h[courts_h$appeal_name == input$cc_stats_appeal, "region_name"]
     tmp <- unique(na.omit(tmp))
-    selectInput("stats_court2",
+    selectInput("cc_stats_region",
                 "Wybór okręgu",
                 c("Wszystkie", tmp),
                 "Wszystkie")
   })
-  
-  output$courts_in_region <- renderUI({
-    #if (!is.null(input$stats_court2)){
-    #  tmp <- filter(courts_h, region_name == input$stats_court2)$name
-    #}
-    tmp <- courts_h[ courts_h$region_name == input$stats_court2, "name"]
-    tmp <- tmp[!is.na(tmp)]
-    selectInput("stats_court3",
-                "Wybór sądu",
-                tmp,
-                tmp[1])
-  })
-  
-  output$all_courts <- renderUI({
-    tmp <- courts_h$name
-    selectInput("stats_court4",
-                "Wybór sądu",
-                tmp,
-                tmp[1])
-  })
-  
-  output$all_courts2 <- renderUI({
-    tmp <- filter(courts_h, appeal_name == input$stats_court)$name
-    selectInput("stats_court5",
-                "Wybór sądu",
-                tmp,
-                tmp[1])
-  })
-  
-  output$court_trends <- renderPlot({
-    # find court id
-    name <- NULL
-    if (input$stats_court == "Wszystkie") {
-      name <- input$stats_court4
-    } else if (!is.null(input$stats_court2)) {
-      if (input$stats_court2 == "Wszystkie") {
-        name <- input$stats_court5
+
+  # slider for sellecting particular courts
+  output$cc_stats_court <- renderUI({
+    tmp <- NULL
+    if (input$cc_stats_appeal == "Wszystkie") {
+      tmp <- courts_h$name
+    } else if (length(input$cc_stats_region) > 0) {
+      if (input$cc_stats_region == "Wszystkie") {
+        tmp <- courts_h[courts_h$appeal_name == input$cc_stats_appeal, "name"]
       } else {
-        name <- input$stats_court3
+        tmp <- courts_h[courts_h$region_name == input$cc_stats_region, "name"]
       }
     }
+    if (!is.null(tmp)) tmp <- unique(tmp[!is.na(tmp)])
+    
+    selectInput("cc_stats_court",
+                "Sąd jeden slider",
+                tmp,
+                tmp[1])
+  })
+  
+  # plot stats for an active court
+  output$court_trends <- renderPlot({
+    name <- input$cc_stats_court
     id <- courts$id[courts$name == name]
     counts <- count_by_month[count_by_month$court_id == id, c("month", "count")]
-    #counts <- select(filter(count_by_month, court_id == id), month, count)
     if (nrow(counts) == 0) {
       plot.new()
       text(0.5, 0.5, "Brak danych")
@@ -138,5 +124,5 @@ shinyServer(function(input, output) {
       plot(counts, type = "l", main = name)
     }
   })
-    
+  
 })
