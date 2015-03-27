@@ -1,5 +1,7 @@
 library("sp")
 library("rgeos")
+library("RColorBrewer")
+library("scales")
 library("ggplot2")
 library("saos")
 library("dplyr")
@@ -55,6 +57,20 @@ plot_ggplotmap <- function(data) {
     coord_map()
 }
 
+## leaflet
+# palette and helpers
+myPalette <- scales::gradient_n_pal(brewer.pal(9, "Blues")[9:4])
+normalise <- function(vector) {
+  (vector - min(vector)) / (max(vector) - min(vector))
+}
+# function for creating leaflet
+plot_leaflet <- function(shp, name) {
+  leaflet(data = shp) %>% addTiles() %>%
+    addPolygons(fillColor = myPalette(normalise(shp@data$count)),
+                fillOpacity = 0.7,
+                stroke = TRUE, color = "black", weight = 3,
+                popup = shp@data[name][,1])
+}
 
 
 
@@ -90,6 +106,23 @@ shinyServer(function(input, output) {
         region_f <- filter(region_f, id %in% regions)
       }
       plot_ggplotmap(region_f)
+    }
+  })
+  
+  output$map_leaflet <- renderLeaflet({
+    if (input$map_goButton == 0)
+      return()
+    
+    if (isolate(input$map_level) == "appeal"){
+      plot_leaflet(shp_appeal, "appeal_name")
+    } else {
+      level2 <- isolate(input$map_level2)
+      if (level2 != "Wszystkie") {
+        regions <- unique(filter(courts_h, appeal_name == level2)$region)
+        shp_region <- shp_region[shp_region@data$region %in% regions,]
+      }
+      
+      plot_leaflet(shp_region, "region_name")
     }
   })
   

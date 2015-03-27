@@ -36,7 +36,8 @@ shinyUI(
             
             mainPanel(plotOutput(outputId = "map_plot"),
                       plotOutput(outputId = "map_ggplot"),
-                      "potencjalne użycie leaflet")
+                      leafletOutput(outputId = "map_leaflet", width = 500, height = 500)
+            )
           )
         ),
         
