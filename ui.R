@@ -29,7 +29,8 @@ shinyUI(
                             c("Wszystkie", dplyr::filter(courts_h, type == "APPEAL")$appeal_name),
                             "Wszystkie")
               ),
-              
+              actionButton("map_goButton", "Pokaż mapę"),
+              tags$br(),
               "Na poziomie regionów sądy apelacyjne nie są uwzględnione"
             ),
             

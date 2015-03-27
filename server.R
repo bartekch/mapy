@@ -61,11 +61,15 @@ plot_ggplotmap <- function(data) {
 shinyServer(function(input, output) {
   
   output$map_plot <- renderPlot({
-    if (input$map_level == "appeal"){
+    if (input$map_goButton == 0)
+      return()
+    
+    if (isolate(input$map_level) == "appeal"){
       spplot(shp_appeal, zcol = "count")
     } else {
-      if (input$map_level2 != "Wszystkie") {
-        regions <- unique(filter(courts_h, appeal_name == input$map_level2)$region)
+      level2 <- isolate(input$map_level2)
+      if (level2 != "Wszystkie") {
+        regions <- unique(filter(courts_h, appeal_name == level2)$region)
         shp_region <- shp_region[shp_region@data$region %in% regions,]
       }
       
@@ -74,11 +78,15 @@ shinyServer(function(input, output) {
   })
   
   output$map_ggplot <- renderPlot({
-    if (input$map_level == "appeal"){
+    if (input$map_goButton == 0)
+      return()
+    
+    if (isolate(input$map_level) == "appeal"){
       plot_ggplotmap(appeal_f)
     } else {
-      if (input$map_level2 != "Wszystkie") {
-        regions <- unique(filter(courts_h, appeal_name == input$map_level2)$region)
+      level2 <- isolate(input$map_level2)
+      if (level2 != "Wszystkie") {
+        regions <- unique(filter(courts_h, appeal_name == level2)$region)
         region_f <- filter(region_f, id %in% regions)
       }
       plot_ggplotmap(region_f)
