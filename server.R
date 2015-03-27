@@ -4,33 +4,57 @@ library("ggplot2")
 library("saos")
 library("dplyr")
 
+## load essential data
 data(courts)
-#courts_h <- readRDS("data//courts_hierarchy.RDS")
-
+#courts_h <- readRDS("data//courts_hierarchy.RDS") # moved to "global.R"
 count_by_month <- readRDS("data/count_by_month.RDS")
 shp_appeal <- readRDS("data//cc_sp_appeal_simple.RDS")
 shp_region <- readRDS("data//cc_sp_region_simple.RDS")
-appeal_f <- fortify(shp_appeal)
-region_f <- fortify(shp_region)
-# appeal_f <- inner_join(appeal_f, shp_appeal@data, by = c("id" = "appeal"))
 
+##  prepare data 
+# join count data with hierarchy data
+count_by_month <- inner_join(count_by_month, 
+                             select(courts_h, id, appeal, region),
+                             by = c("court_id" = "id"))
+# create count by appeal
+count_by_month %>%
+  group_by(appeal) %>%
+  summarise(count = sum(count)) -> count_appeal
+
+# create coutn by region
+count_by_month %>%
+  group_by(region) %>%
+  summarise(count = sum(count)) -> count_region
+
+
+
+## prepare data and utilities for maps
+
+# ggplots datasets
+appeal_f <- fortify(shp_appeal)
+appeal_f <- inner_join(appeal_f, count_appeal, by = c("id" = "appeal"))
+region_f <- fortify(shp_region)
+region_f <- inner_join(region_f, count_region, by = c("id" = "region"))
+
+# spatial data
+shp_appeal@data <- inner_join(shp_appeal@data, count_appeal, by = "appeal")
+shp_region@data <- inner_join(shp_region@data, count_region, by = "region")
+
+# own ggplot theme for maps
 theme_own <- theme_minimal() +
   theme(axis.ticks = element_blank(), axis.line = element_blank(),
         axis.text = element_blank(), axis.title = element_blank(),
         panel.grid = element_blank())
 
-# join count data with hierarchy data
-count_by_month <- inner_join(count_by_month, 
-                             select(courts_h, id, appeal, region),
-                             by = c("court_id" = "id"))
+# function for plotting ggplot map
+plot_ggplotmap <- function(data) {
+  ggplot(data, aes(long, lat, group = group, fill = count)) +
+    geom_polygon() +
+    geom_path(color = "black", lwd = 0.5) +
+    theme_own +
+    coord_map()
+}
 
-count_by_month %>%
-  group_by(appeal) %>%
-  summarise(count = sum(count)) -> count_appeal
-
-count_by_month %>%
-  group_by(region) %>%
-  summarise(count = sum(count)) -> count_region
 
 
 
@@ -38,13 +62,8 @@ shinyServer(function(input, output) {
   
   output$map_plot <- renderPlot({
     if (input$map_level == "appeal"){
-      tmp <- count_appeal
-      
-      shp_appeal@data$count <- tmp$count
       spplot(shp_appeal, zcol = "count")
     } else {
-      tmp <- count_region
-      shp_region@data <- inner_join(shp_region@data, tmp, by = "region")
       if (input$map_level2 != "Wszystkie") {
         regions <- unique(filter(courts_h, appeal_name == input$map_level2)$region)
         shp_region <- shp_region[shp_region@data$region %in% regions,]
@@ -56,26 +75,13 @@ shinyServer(function(input, output) {
   
   output$map_ggplot <- renderPlot({
     if (input$map_level == "appeal"){
-      tmp <- count_appeal
-      appeal_f <- inner_join(appeal_f, tmp, by = c("id" = "appeal"))
-      ggplot(appeal_f, aes(long, lat, group = group, fill = count)) +
-        geom_polygon() +
-        geom_path(color = "white", lwd = 0.2) +
-        theme_own +
-        coord_map()
+      plot_ggplotmap(appeal_f)
     } else {
-      tmp <- count_region
-      region_f <- inner_join(region_f, tmp, by = c("id" = "region"))
       if (input$map_level2 != "Wszystkie") {
         regions <- unique(filter(courts_h, appeal_name == input$map_level2)$region)
         region_f <- filter(region_f, id %in% regions)
       }
-      
-      ggplot(region_f, aes(long, lat, group = group, fill = count)) +
-        geom_polygon() +
-        geom_path(color = "white", lwd = 0.5) +
-        theme_own +
-        coord_map()
+      plot_ggplotmap(region_f)
     }
   })
   
