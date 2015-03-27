@@ -4,7 +4,7 @@ library("ggplot2")
 library("saos")
 library("dplyr")
 
-#data(courts)
+data(courts)
 #courts_h <- readRDS("data//courts_hierarchy.RDS")
 
 count_by_month <- readRDS("data/count_by_month.RDS")
@@ -92,7 +92,7 @@ shinyServer(function(input, output) {
                 "Wszystkie")
   })
 
-  # slider for sellecting particular courts
+  # slider for selecting particular courts
   output$cc_stats_court <- renderUI({
     tmp <- NULL
     if (input$cc_stats_appeal == "Wszystkie") {
@@ -107,7 +107,17 @@ shinyServer(function(input, output) {
     if (!is.null(tmp)) tmp <- unique(tmp[!is.na(tmp)])
     
     selectInput("cc_stats_court",
-                "Sąd jeden slider",
+                "Sąd",
+                tmp,
+                tmp[1])
+  })
+  
+  # list of divisions
+  output$cc_stats_division <- renderUI({
+    tmp <- courts[courts$name == input$cc_stats_court, "divisions"]
+    if (length(tmp) > 0) tmp <- tmp[[1]]$name
+    selectInput("cc_stats_division",
+                "Wydziały",
                 tmp,
                 tmp[1])
   })

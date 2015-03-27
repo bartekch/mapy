@@ -4,7 +4,7 @@ shinyUI(
     # page title
     "Trendy",
     
-    # tab with common courts -> another tabs are nested
+    ## tab with common courts -> another tabs are nested
     tabPanel(
       # title for common courts tab
       "Sądy powszechne",
@@ -58,7 +58,10 @@ shinyUI(
               ),
               
               # list available courts
-              uiOutput("cc_stats_court")
+              uiOutput("cc_stats_court"),
+              
+              # list available divisions
+              uiOutput("cc_stats_division")
             ),
             
             mainPanel(
@@ -69,10 +72,12 @@ shinyUI(
       )
     ),
     
-    # tab for supreme court
+    
+    ## tab for supreme court
     tabPanel("Sąd Najwyższy", "coś tu będzie"),
     
-    # tab for constitutional tribune
+    
+    ## tab for constitutional tribune
     tabPanel("Trybunał Konstytucyjny", "coś tu będzie")
   )
 )
