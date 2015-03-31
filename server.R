@@ -3,6 +3,9 @@ library("rgeos")
 library("RColorBrewer")
 library("scales")
 library("ggplot2")
+library("ggvis")
+library("xts")
+library("dygraphs")
 library("saos")
 library("dplyr")
 
@@ -178,7 +181,26 @@ shinyServer(function(input, output) {
       plot.new()
       text(0.5, 0.5, "Brak danych")
     } else {
-      plot(counts, type = "l", main = name)
+      ggplot(counts, aes(x = month, y = count)) +
+        geom_line() +
+        labs(title = name, x = "Miesiąc", y = "Liczba orzeczeń") +
+        theme_bw()
+    }
+  })
+  
+  # interactive plot for an active court
+  output$court_trends_dygraph <- renderDygraph({
+    name <- input$cc_stats_court
+    id <- courts$id[courts$name == name]
+    counts <- count_by_month[count_by_month$court_id == id, c("month", "count")]
+    if (nrow(counts) == 0) {
+      plot.new()
+      text(0.5, 0.5, "Brak danych")
+    } else {
+      counts <- xts(counts$count, order.by = counts$month)
+      dygraph(counts, main = name, xlab = "", ylab = "Liczba orzeczeń") %>%
+        dyOptions(drawPoints = TRUE, pointSize = 2, includeZero = TRUE) %>%
+        dyRangeSelector()
     }
   })
   
