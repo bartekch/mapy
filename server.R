@@ -5,16 +5,22 @@ library("scales")
 library("ggplot2")
 library("ggvis")
 library("xts")
-library("dygraphs")
 library("saos")
+library("saosTools")
+library("RSQLite")
 library("dplyr")
+
+## connect to database
+con <- dbConnect(RSQLite::SQLite(), "data/common_courts.db")
 
 ## load essential data
 data(courts)
 #courts_h <- readRDS("data//courts_hierarchy.RDS") # moved to "global.R"
-count_by_month <- readRDS("data/count_by_month.RDS")
-shp_appeal <- readRDS("data//cc_sp_appeal_simple.RDS")
-shp_region <- readRDS("data//cc_sp_region_simple.RDS")
+count_by_month <- dbReadTable(con, "count_by_month")
+data(cc_sp_appeal)
+shp_appeal <- cc_sp_appeal
+data(cc_sp_region)
+shp_region <- cc_sp_region
 
 ##  prepare data 
 # join count data with hierarchy data
@@ -22,14 +28,12 @@ count_by_month <- inner_join(count_by_month,
                              select(courts_h, id, appeal, region),
                              by = c("court_id" = "id"))
 # create count by appeal
-count_by_month %>%
-  group_by(appeal) %>%
-  summarise(count = sum(count)) -> count_appeal
+count_by_year_appeal <- dbReadTable(con, "count_by_year_appeal")
+count_appeal <- summarise(group_by(count_by_year_appeal, appeal), count = sum(count))
 
 # create coutn by region
-count_by_month %>%
-  group_by(region) %>%
-  summarise(count = sum(count)) -> count_region
+count_by_year_region <- dbReadTable(con, "count_by_year_region")
+count_region <- summarise(group_by(count_by_year_region, region), count = sum(count))
 
 
 
