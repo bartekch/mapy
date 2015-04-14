@@ -15,6 +15,9 @@ shinyUI(
           "Mapy",
           sidebarLayout(
             sidebarPanel(
+              # choose year for year plot
+              sliderInput("map_year", "Rok", min = 2000, max = 2015, 
+                          value = 2014, step = 1, round = TRUE, animate = TRUE),
               # choose level of map
               selectInput("map_level",
                           "Poziom mapy:",
@@ -34,9 +37,11 @@ shinyUI(
               "Na poziomie regionów sądy apelacyjne nie są uwzględnione"
             ),
             
-            mainPanel(plotOutput(outputId = "map_plot"),
-                      plotOutput(outputId = "map_ggplot"),
-                      leafletOutput(outputId = "map_leaflet", width = 500, height = 500)
+            mainPanel(
+              plotOutput(outputId = "map_year_plot"),
+              plotOutput(outputId = "map_plot"),
+              plotOutput(outputId = "map_ggplot"),
+              leafletOutput(outputId = "map_leaflet", width = 500, height = 500)
             )
           )
         ),

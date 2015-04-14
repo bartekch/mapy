@@ -27,14 +27,17 @@ shp_region <- cc_sp_region
 count_by_month <- inner_join(count_by_month, 
                              select(courts_h, id, appeal, region),
                              by = c("court_id" = "id"))
+count_by_month$month <- as.Date(count_by_month$month)
+
 # create count by appeal
 count_by_year_appeal <- dbReadTable(con, "count_by_year_appeal")
 count_appeal <- summarise(group_by(count_by_year_appeal, appeal), count = sum(count))
+count_by_year_appeal$year <- as.Date(count_by_year_appeal$year)
 
 # create coutn by region
 count_by_year_region <- dbReadTable(con, "count_by_year_region")
 count_region <- summarise(group_by(count_by_year_region, region), count = sum(count))
-
+count_by_year_region$year <- as.Date(count_by_year_region$year)
 
 
 ## prepare data and utilities for maps
@@ -82,6 +85,13 @@ plot_leaflet <- function(shp, name) {
 
 
 shinyServer(function(input, output) {
+  
+  output$map_year_plot <- renderPlot({
+    inp_year <- input$map_year
+    tmp <- filter(count_by_year_appeal, year(year) == inp_year)
+    shp_appeal@data <- left_join(shp_appeal@data, tmp, by = "appeal")
+    spplot(shp_appeal, zcol = "count.y")
+  })
   
   output$map_plot <- renderPlot({
     if (input$map_goButton == 0)
@@ -198,8 +208,7 @@ shinyServer(function(input, output) {
     id <- courts$id[courts$name == name]
     counts <- count_by_month[count_by_month$court_id == id, c("month", "count")]
     if (nrow(counts) == 0) {
-      plot.new()
-      text(0.5, 0.5, "Brak danych")
+      return()
     } else {
       counts <- xts(counts$count, order.by = counts$month)
       dygraph(counts, main = name, xlab = "", ylab = "Liczba orzeczeń") %>%
