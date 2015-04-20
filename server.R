@@ -83,6 +83,11 @@ plot_leaflet <- function(shp, name) {
 }
 
 
+## prepare data about judges
+cc_judges_count <- dbReadTable(con, "judges_count")
+dbReadTable(con, "judges_burden") %>%
+  group_by(court_id) %>%
+  summarise(burden = mean(count)) -> cc_judges_burden
 
 shinyServer(function(input, output) {
   
@@ -184,6 +189,18 @@ shinyServer(function(input, output) {
                 "Wydziały",
                 tmp,
                 tmp[1])
+  })
+  
+  # basic info for an active court
+  output$cc_stats_info <- renderTable({
+    if (is.null(input$cc_stats_court)) {
+      return()
+    }
+    name <- input$cc_stats_court
+    id <- courts$id[courts$name == name]
+    data.frame("Co"=c("Liczba sędziów", "Średnia liczba orzeczeń na sędziego"), 
+               "Ile"=c(cc_judges_count$count[cc_judges_count$court_id == id],
+                 cc_judges_burden$burden[cc_judges_burden$court_id == id]))
   })
   
   # plot stats for an active court

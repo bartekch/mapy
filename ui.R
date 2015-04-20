@@ -73,10 +73,14 @@ shinyUI(
             
             mainPanel(
               tabsetPanel(
-                tabPanel("Statystyki"),
-                tabPanel("Wykres",
-                         plotOutput("court_trends"),
-                         dygraphOutput("court_trends_dygraph")
+                tabPanel(
+                  "Statystyki",
+                  tableOutput("cc_stats_info")
+                ),
+                tabPanel(
+                  "Wykres",
+                  plotOutput("court_trends"),
+                  dygraphOutput("court_trends_dygraph")
                 )
               )
             )
