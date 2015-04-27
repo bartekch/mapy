@@ -15,9 +15,36 @@ shinyUI(
           "Mapy",
           sidebarLayout(
             sidebarPanel(
+              # choose variable to be shown
+              selectInput("map_variable", "Zmienna:", 
+                          c("Liczba orzeczeń" = "count",
+                            "Obciążenie sędziów" = "judges_burden")),
+              
+              # choose type of graph
+              radioButtons("map_type", "Rodzaj wykresu:", 
+                           c("statyczny" = "static", "interaktywny" = "interactive"),
+                           inline = TRUE),
+              
+              # choose time unit
+              radioButtons("map_time_unit", "Rozdzielczość czasowa:",
+                          c("roczna" = "year", "miesięczna" = "month"),
+                          inline = TRUE),
+              
               # choose year for year plot
-              sliderInput("map_year", "Rok", min = 2000, max = 2015, 
-                          value = 2014, step = 1, round = TRUE, animate = TRUE),
+              conditionalPanel(
+                "input.map_time_unit == 'year'",
+                sliderInput("map_year", "Rok", min = 2000, max = 2015,
+                            value = 2014, step = 1, round = TRUE, sep = "", 
+                            ticks = FALSE, animate = TRUE)
+              ),
+              
+              # choose months for month plot
+              conditionalPanel(
+                "input.map_time_unit != 'year'",
+                uiOutput("map_month_range_ui"),
+                uiOutput("map_month_ui")
+              ),
+              
               # choose level of map
               selectInput("map_level",
                           "Poziom mapy:",
@@ -32,16 +59,21 @@ shinyUI(
                             c("Wszystkie", dplyr::filter(courts_h, type == "APPEAL")$appeal_name),
                             "Wszystkie")
               ),
-              actionButton("map_goButton", "Pokaż mapę"),
+              #actionButton("map_goButton", "Pokaż mapę"),
               tags$br(),
               "Na poziomie regionów sądy apelacyjne nie są uwzględnione"
             ),
             
             mainPanel(
-              plotOutput(outputId = "map_year_plot"),
-              plotOutput(outputId = "map_plot"),
-              plotOutput(outputId = "map_ggplot"),
-              leafletOutput(outputId = "map_leaflet", width = 500, height = 500)
+              conditionalPanel(
+                "input.map_type == 'static'",
+                #plotOutput(outputId = "map_plot_static")
+                imageOutput(outputId = "map_plot_static_svg")
+              ),
+              conditionalPanel(
+                "input.map_type == 'interactive'",
+                leafletOutput(outputId = "map_plot_interactive")
+              )
             )
           )
         ),
