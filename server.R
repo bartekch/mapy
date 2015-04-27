@@ -16,7 +16,6 @@ con <- dbConnect(RSQLite::SQLite(), "data/common_courts.db")
 
 ## load essential data
 data(courts)
-#courts_h <- readRDS("data//courts_hierarchy.RDS") # moved to "global.R"
 count_by_month <- dbReadTable(con, "count_by_month")
 data(cc_sp_appeal)
 shp_appeal <- cc_sp_appeal
@@ -31,28 +30,36 @@ count_by_month <- inner_join(count_by_month,
 count_by_month$month <- as.Date(count_by_month$month)
 
 # month count by appeal
-count_by_month_appeal <- summarise(group_by(count_by_month, appeal, month), count = sum(count))
+count_by_month %>%
+  group_by(appeal, month) %>%
+  summarise(variable = sum(count)) %>%
+  rename(time = month) -> count_by_month_appeal
 # month count by year
-count_by_month_region <- summarise(group_by(count_by_month, region, month), count = sum(count))
+count_by_month %>%
+  group_by(region, month) %>%
+  summarise(variable = sum(count)) %>%
+  rename(time = month) -> count_by_month_region
+# count_by_month_region <- summarise(group_by(count_by_month, region, month), count = sum(count))
 
 # create count by appeal
 count_by_year_appeal <- dbReadTable(con, "count_by_year_appeal")
 count_appeal <- summarise(group_by(count_by_year_appeal, appeal), count = sum(count))
 count_by_year_appeal$year <- as.Date(count_by_year_appeal$year)
+count_by_year_appeal <- mutate(count_by_year_appeal, time = lubridate::year(year), variable = count)
 
 # create count by region
 count_by_year_region <- dbReadTable(con, "count_by_year_region")
 count_region <- summarise(group_by(count_by_year_region, region), count = sum(count))
 count_by_year_region$year <- as.Date(count_by_year_region$year)
-
+count_by_year_region <- mutate(count_by_year_region, time = lubridate::year(year), variable = count)
 
 ## prepare data and utilities for maps
 
 # ggplots datasets
-appeal_f <- fortify(shp_appeal)
+#appeal_f <- fortify(shp_appeal)
 #appeal_f <- inner_join(appeal_f, count_appeal, by = c("id" = "appeal"))
-region_f <- fortify(shp_region)
-region_f <- inner_join(region_f, count_region, by = c("id" = "region"))
+#region_f <- fortify(shp_region)
+#region_f <- inner_join(region_f, count_region, by = c("id" = "region"))
 
 # spatial data
 #shp_appeal@data <- inner_join(shp_appeal@data, count_appeal, by = "appeal")
@@ -104,7 +111,16 @@ year_month <- apply(year_month[, c(2,1)], 1, paste, collapse = "-")
 
 
 
-
+### data structure for convenient map plotting
+map_data <- list(count = list(year = list(appeal = count_by_year_appeal,
+                                          region = count_by_year_region),
+                              month = list(appeal = count_by_month_appeal,
+                                           region = count_by_month_region)),
+                 burden = list(year = list(appeal = numeric(),
+                                           region = numeric()),
+                               month = list(appeal = numeric(),
+                                            region = numeric()))
+                 )
 
 
 # Main server function ----------------------------------------------------
@@ -149,13 +165,15 @@ shinyServer(function(input, output) {
   # svg static plot
   output$map_plot_static_svg <- renderImage({
     map_data <- prepare_map_data()
-    if (is.null(map_data)) return()
-
+    
     outfile <- tempfile(fileext = ".svg")
     svg(outfile)
-    print(spplot(map_data, zcol = "variable"))
+    if (is.null(map_data)) {
+      plot.new()
+    } else {
+      print(spplot(map_data, zcol = "variable"))
+    }
     dev.off()
-    
     filename <- normalizePath(file.path(outfile))
     list(src = filename, alt = "not working", width = 500, height = 500)
   }, deleteFile = TRUE)
@@ -169,40 +187,30 @@ shinyServer(function(input, output) {
   
   # prepare shapefile for plotting
   prepare_map_data <- reactive({
-    if (input$map_level == "appeal") {
-      if (input$map_time_unit == "year") {
-        inp_year <- input$map_year
-        tmp <- filter(count_by_year_appeal, lubridate::year(year) == inp_year)
-      } else {
-        if (is.null(input$map_month)) return()
-        range <- input$map_month_range
-        inp_month <- as.Date(paste0(year_month[input$map_month+range[1]+1], "-01"), 
-                           format = "%Y-%m-%d")
-        tmp <- filter(count_by_month_appeal, month == inp_month)
-      }
-      shp_appeal@data <- left_join(shp_appeal@data, tmp, by = "appeal")
-      shp_appeal@data$variable <- ifelse(is.na(shp_appeal@data$count), 0, shp_appeal@data$count)
-      shp_appeal
+    tmp <- map_data[[input$map_variable]][[input$map_time_unit]][[input$map_level]]
+    if (input$map_time_unit == "year") {
+      inp_time <- input$map_year
     } else {
+      if (is.null(input$map_month)) return()
+      range <- input$map_month_range
+      inp_time <- as.Date(paste0(year_month[input$map_month+range[1]+1], "-01"), 
+                           format = "%Y-%m-%d")
+    }
+    tmp <- filter(tmp, time == inp_time)
+    
+    if (input$map_level == "appeal") {
+      shp <- shp_appeal
+    } else {
+      shp <- shp_region
       level2 <- input$map_level2
-      if (input$map_time_unit == "year") {
-        inp_year <- input$map_year
-        tmp <- filter(count_by_year_region, lubridate::year(year) == inp_year)
-      } else {
-        if (is.null(input$map_month)) return()
-        range <- input$map_month_range
-        inp_month <- as.Date(paste0(year_month[input$map_month+range[1]+1], "-01"), 
-                             format = "%Y-%m-%d")
-        tmp <- filter(count_by_month_region, month == inp_month)
-      }
-      shp_region@data <- left_join(shp_region@data, tmp, by = "region")
-      shp_region@data$variable <- ifelse(is.na(shp_region@data$count), 0, shp_region@data$count)
       if (level2 != "Wszystkie") {
         regions <- unique(filter(courts_h, appeal_name == level2)$region)
-        shp_region <- shp_region[shp_region@data$region %in% regions,]
+        shp <- shp_region[shp_region@data$region %in% regions,]
       }
-      shp_region
     }
+    shp@data <- left_join(shp@data, tmp, by = input$map_level)
+    shp@data$variable <- ifelse(is.na(shp@data$variable), 0, shp@data$variable)
+    shp
   })
   
 
