@@ -23,6 +23,7 @@ shinyUI(
               # choose type of graph
               radioButtons("map_type", "Rodzaj wykresu:", 
                            c("statyczny" = "static", "interaktywny" = "interactive"),
+                           selected = "interactive",
                            inline = TRUE),
               
               # choose time unit

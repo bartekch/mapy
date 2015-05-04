@@ -11,7 +11,7 @@ library("saosTools")
 library("RSQLite")
 library("dplyr")
 
-## connect to database
+# connect to database
 con <- dbConnect(RSQLite::SQLite(), "data/common_courts.db")
 
 
@@ -150,13 +150,14 @@ shinyServer(function(input, output) {
     }
     dev.off()
     filename <- normalizePath(file.path(outfile))
-    list(src = filename, alt = "not working", width = 500, height = 500)
+    list(src = filename, alt = "", width = 500, height = 500)
   }, deleteFile = TRUE)
 
   # interactive plot
   output$map_plot_interactive <- renderLeaflet({
     map_data <- prepare_map_shp()
     if (is.null(map_data)) return()
+    map_data@data$variable[is.na(map_data@data$variable)] <- 0
     plot_leaflet(map_data)
   })
   
