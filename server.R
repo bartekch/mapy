@@ -14,71 +14,24 @@ library("dplyr")
 ## connect to database
 con <- dbConnect(RSQLite::SQLite(), "data/common_courts.db")
 
+
 ## load essential data
 data(courts)
 count_by_month <- dbReadTable(con, "count_by_month")
 data(cc_sp_appeal)
-shp_appeal <- cc_sp_appeal
 data(cc_sp_region)
-shp_region <- cc_sp_region
 
-##  prepare data 
-# join count data with hierarchy data
-count_by_month <- inner_join(count_by_month, 
-                             select(courts_h, id, appeal, region),
-                             by = c("court_id" = "id"))
-count_by_month$month <- as.Date(count_by_month$month)
+### data structure for convenient map plotting
+map_data <- list(count = list(year = list(appeal = dbReadTable(con, "count_by_year_appeal"),
+                                          region = dbReadTable(con, "count_by_year_region")),
+                              month = list(appeal = dbReadTable(con, "count_by_month_appeal"),
+                                           region = dbReadTable(con, "count_by_month_region"))),
+                 burden = list(year = list(appeal = dbReadTable(con, "burden_by_year_appeal"),
+                                           region = dbReadTable(con, "burden_by_year_region")),
+                               month = list(appeal = dbReadTable(con, "burden_by_month_appeal"),
+                                            region = dbReadTable(con, "burden_by_month_region")))
+                 )
 
-# month count by appeal
-count_by_month %>%
-  group_by(appeal, month) %>%
-  summarise(variable = sum(count)) %>%
-  rename(time = month) -> count_by_month_appeal
-# month count by year
-count_by_month %>%
-  group_by(region, month) %>%
-  summarise(variable = sum(count)) %>%
-  rename(time = month) -> count_by_month_region
-# count_by_month_region <- summarise(group_by(count_by_month, region, month), count = sum(count))
-
-# create count by appeal
-count_by_year_appeal <- dbReadTable(con, "count_by_year_appeal")
-count_appeal <- summarise(group_by(count_by_year_appeal, appeal), count = sum(count))
-count_by_year_appeal$year <- as.Date(count_by_year_appeal$year)
-count_by_year_appeal <- mutate(count_by_year_appeal, time = lubridate::year(year), variable = count)
-
-# create count by region
-count_by_year_region <- dbReadTable(con, "count_by_year_region")
-count_region <- summarise(group_by(count_by_year_region, region), count = sum(count))
-count_by_year_region$year <- as.Date(count_by_year_region$year)
-count_by_year_region <- mutate(count_by_year_region, time = lubridate::year(year), variable = count)
-
-## prepare data and utilities for maps
-
-# ggplots datasets
-#appeal_f <- fortify(shp_appeal)
-#appeal_f <- inner_join(appeal_f, count_appeal, by = c("id" = "appeal"))
-#region_f <- fortify(shp_region)
-#region_f <- inner_join(region_f, count_region, by = c("id" = "region"))
-
-# spatial data
-#shp_appeal@data <- inner_join(shp_appeal@data, count_appeal, by = "appeal")
-#shp_region@data <- inner_join(shp_region@data, count_region, by = "region")
-
-# own ggplot theme for maps
-theme_own <- theme_minimal() +
-  theme(axis.ticks = element_blank(), axis.line = element_blank(),
-        axis.text = element_blank(), axis.title = element_blank(),
-        panel.grid = element_blank())
-
-# function for plotting ggplot map
-plot_ggplotmap <- function(data) {
-  ggplot(data, aes(long, lat, group = group, fill = count)) +
-    geom_polygon() +
-    geom_path(color = "black", lwd = 0.5) +
-    theme_own +
-    coord_map()
-}
 
 ## leaflet
 # palette and helpers
@@ -111,17 +64,6 @@ year_month <- apply(year_month[, c(2,1)], 1, paste, collapse = "-")
 
 
 
-### data structure for convenient map plotting
-map_data <- list(count = list(year = list(appeal = count_by_year_appeal,
-                                          region = count_by_year_region),
-                              month = list(appeal = count_by_month_appeal,
-                                           region = count_by_month_region)),
-                 burden = list(year = list(appeal = numeric(),
-                                           region = numeric()),
-                               month = list(appeal = numeric(),
-                                            region = numeric()))
-                 )
-
 
 # Main server function ----------------------------------------------------
 
@@ -129,7 +71,7 @@ shinyServer(function(input, output) {
   
   #### I. COMMON COURTS TAB
   
-  ### map section
+  ### Map section
   
   ## UI
   # sliders for months
@@ -154,22 +96,55 @@ shinyServer(function(input, output) {
     slider
   })
   
-  ## OUTPUT
-  # static plot
-  output$map_plot_static <- renderPlot({
-    map_data <- prepare_map_data()
-    if (is.null(map_data)) return()
-    spplot(map_data, zcol = "variable")
+  
+  ## Reactive expressions for processing input
+  # filter map data
+  prepare_map_data <- reactive({
+    tmp <- map_data[[input$map_variable]][[input$map_time_unit]][[input$map_level]]
+    if (input$map_time_unit == "year") {
+      inp_time <- input$map_year
+    } else {
+      if (is.null(input$map_month)) return()
+      range <- input$map_month_range
+      inp_time <- year_month[input$map_month+range[1]+1]
+    }
+    tmp <- filter(tmp, time == inp_time)
+    
+    if (input$map_level == "region" & input$map_level2 != "Wszystkie") {
+      regions <- unique(filter(courts_h, appeal_name == input$map_level2)$region)
+      tmp <- tmp[tmp$region %in% regions,]
+    }
+    tmp
   })
   
+  # prepare shapefile for plotting
+  prepare_map_shp <- reactive({
+    tmp <- prepare_map_data()
+    if (is.null(tmp)) return()
+    if (input$map_level == "appeal") {
+      shp <- cc_sp_appeal
+    } else {
+      shp <- cc_sp_region
+      level2 <- input$map_level2
+      if (level2 != "Wszystkie") {
+        regions <- unique(filter(courts_h, appeal_name == level2)$region)
+        shp <- cc_sp_region[cc_sp_region@data$region %in% regions,]
+      }
+    }
+    shp@data <- left_join(shp@data, as.data.frame(tmp), by = input$map_level)
+    shp
+  })
+
+  ## Output
   # svg static plot
   output$map_plot_static_svg <- renderImage({
-    map_data <- prepare_map_data()
-    
+    map_data <- prepare_map_shp()
     outfile <- tempfile(fileext = ".svg")
     svg(outfile)
     if (is.null(map_data)) {
       plot.new()
+    } else if (all(is.na(map_data@data$variable))) {
+      plot(map_data)
     } else {
       print(spplot(map_data, zcol = "variable"))
     }
@@ -180,38 +155,16 @@ shinyServer(function(input, output) {
 
   # interactive plot
   output$map_plot_interactive <- renderLeaflet({
-    map_data <- prepare_map_data()
+    map_data <- prepare_map_shp()
     if (is.null(map_data)) return()
     plot_leaflet(map_data)
   })
   
-  # prepare shapefile for plotting
-  prepare_map_data <- reactive({
-    tmp <- map_data[[input$map_variable]][[input$map_time_unit]][[input$map_level]]
-    if (input$map_time_unit == "year") {
-      inp_time <- input$map_year
-    } else {
-      if (is.null(input$map_month)) return()
-      range <- input$map_month_range
-      inp_time <- as.Date(paste0(year_month[input$map_month+range[1]+1], "-01"), 
-                           format = "%Y-%m-%d")
-    }
-    tmp <- filter(tmp, time == inp_time)
-    
-    if (input$map_level == "appeal") {
-      shp <- shp_appeal
-    } else {
-      shp <- shp_region
-      level2 <- input$map_level2
-      if (level2 != "Wszystkie") {
-        regions <- unique(filter(courts_h, appeal_name == level2)$region)
-        shp <- shp_region[shp_region@data$region %in% regions,]
-      }
-    }
-    shp@data <- left_join(shp@data, tmp, by = input$map_level)
-    shp@data$variable <- ifelse(is.na(shp@data$variable), 0, shp@data$variable)
-    shp
+  # data table
+  output$map_data_table <- renderDataTable({
+    prepare_map_data()
   })
+  
   
 
   

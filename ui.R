@@ -18,7 +18,7 @@ shinyUI(
               # choose variable to be shown
               selectInput("map_variable", "Zmienna:", 
                           c("Liczba orzeczeń" = "count",
-                            "Obciążenie sędziów" = "judges_burden")),
+                            "Obciążenie sędziów" = "burden")),
               
               # choose type of graph
               radioButtons("map_type", "Rodzaj wykresu:", 
@@ -65,14 +65,19 @@ shinyUI(
             ),
             
             mainPanel(
-              conditionalPanel(
-                "input.map_type == 'static'",
-                #plotOutput(outputId = "map_plot_static")
-                imageOutput(outputId = "map_plot_static_svg")
-              ),
-              conditionalPanel(
-                "input.map_type == 'interactive'",
-                leafletOutput(outputId = "map_plot_interactive")
+              tabsetPanel(
+                tabPanel(
+                  "Mapa",
+                  conditionalPanel("input.map_type == 'static'",
+                                   imageOutput(outputId = "map_plot_static_svg")),
+                  conditionalPanel("input.map_type == 'interactive'",
+                                   leafletOutput(outputId = "map_plot_interactive"))
+                ),
+             
+                tabPanel(
+                  "Dane",
+                  dataTableOutput("map_data_table")
+                )
               )
             )
           )
