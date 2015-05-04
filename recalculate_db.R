@@ -1,11 +1,15 @@
 recalculate_db <- function() {
   library("dplyr")
   library("RSQLite")
+  library("lubridate")
+  library("tidyr")
   
   con <- dbConnect(RSQLite::SQLite(), "data/common_courts.db")
   
   
   judgments <- dbReadTable(con, "judgments")
+  judgments$month <- substr(judgments$month, 1, 7)
+  judgments$year <- substr(judgments$year, 1, 4)
   
   # summarise number of judgments in each division by month
   judgments %>%
@@ -53,39 +57,90 @@ recalculate_db <- function() {
   # create count by appeal
   count_by_month %>%
     group_by(appeal, month) %>%
-    summarise(count = sum(count)) -> count_appeal
-  
+    summarise(count = sum(count)) %>%
+    rename(time = month, variable = count) -> count_appeal
+  tmp <- expand(count_appeal, appeal, time)
+  count_appeal <- left_join(tmp, count_appeal, by = c("appeal", "time"))
   dbWriteTable(con, "count_by_month_appeal", as.data.frame(count_appeal), overwrite = TRUE)
   
   count_by_year %>%
     group_by(appeal, year) %>%
-    summarise(count = sum(count)) -> count_appeal
-  
+    summarise(count = sum(count))  %>% 
+    rename(time = year, variable = count) -> count_appeal
+  tmp <- expand(count_appeal, appeal, time)
+  count_appeal <- left_join(tmp, count_appeal, by = c("appeal", "time"))
   dbWriteTable(con, "count_by_year_appeal", as.data.frame(count_appeal), overwrite = TRUE)
   
   
   # create count by region
   count_by_month %>%
     group_by(region, month) %>%
-    summarise(count = sum(count)) -> count_region
-  
+    summarise(count = sum(count)) %>%
+    rename(time = month, variable = count) -> count_region
+  tmp <- expand(count_region, region, time)
+  count_region <- left_join(tmp, count_region, by = c("region", "time"))
   dbWriteTable(con, "count_by_month_region", as.data.frame(count_region), overwrite = TRUE)
   
   count_by_year %>%
     group_by(region, year) %>%
-    summarise(count = sum(count)) -> count_region
-  
+    summarise(count = sum(count)) %>% 
+    rename(time = year, variable = count) -> count_region
+  tmp <- expand(count_region, region, time)
+  count_region <- left_join(tmp, count_region, by = c("region", "time"))
   dbWriteTable(con, "count_by_year_region", as.data.frame(count_region), overwrite = TRUE)
   
   ## judges data
   judges <- dbReadTable(con, "judges")
   # add division and court info
   judges <- inner_join(judges,
-                       select(judgments, id, division_id),
+                       select(judgments, id, division_id, month, year),
                        by = "id")
   judges <- inner_join(judges,
                        select(divs, id, court_id),
                        by = c("division_id" = "id"))
+  judges <- inner_join(judges,
+                       select(courts, id, appeal, region),
+                       by = c("court_id" = "id"))
+  
+  # prepare datasets with burden
+  judges %>%
+    group_by(appeal, month, name) %>%
+    summarise(count = n()) %>%
+    summarise(variable = mean(count)) %>%
+    rename(time = month) -> burden_appeal
+  tmp <- expand(burden_appeal, appeal, time)
+  burden_appeal <- left_join(tmp, burden_appeal, by = c("appeal", "time"))
+  dbWriteTable(con, "burden_by_month_appeal", as.data.frame(burden_appeal), overwrite = TRUE)
+  
+  judges %>%
+    group_by(appeal, year, name) %>%
+    summarise(count = n()) %>%
+    summarise(variable = mean(count)) %>%
+    rename(time = year) -> burden_appeal
+  tmp <- expand(burden_appeal, appeal, time)
+  burden_appeal <- left_join(tmp, burden_appeal, by = c("appeal", "time"))
+  dbWriteTable(con, "burden_by_year_appeal", as.data.frame(burden_appeal), overwrite = TRUE)
+  
+  judges %>%
+    group_by(region, month, name) %>%
+    summarise(count = n()) %>%
+    summarise(variable = mean(count)) %>%
+    rename(time = month) -> burden_region
+  tmp <- expand(burden_region, region, time)
+  burden_region <- left_join(tmp, burden_region, by = c("region", "time"))
+  dbWriteTable(con, "burden_by_month_region", as.data.frame(burden_region), overwrite = TRUE)
+  
+  judges %>%
+    group_by(region, year, name) %>%
+    summarise(count = n()) %>%
+    summarise(variable = mean(count)) %>%
+    rename(time = year) -> burden_region
+  tmp <- expand(burden_region, region, time)
+  burden_region <- left_join(tmp, burden_region, by = c("region", "time"))
+  dbWriteTable(con, "burden_by_year_region", as.data.frame(burden_region), overwrite = TRUE)
+  
+  
+  
   
   # count number of distinct judges in each court
   judges %>%
