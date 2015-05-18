@@ -63,7 +63,8 @@ year_month <- head(year_month, -10)
 year_month <- apply(year_month[, c(2,1)], 1, paste, collapse = "-")
 
 
-
+### load data for supreme courts
+data(scchambers, package = "saos")
 
 # Main server function ----------------------------------------------------
 
@@ -217,10 +218,10 @@ shinyServer(function(input, output) {
                "<b>Lista wydziałów:</b><br/>", 
                paste(tmp, collapse = "<br/>"), 
                collapse = "<br/>"))
-#     selectInput("cc_stats_division",
-#                 "Wydziały",
-#                 tmp,
-#                 tmp[1])
+    #selectInput("cc_stats_division",
+    #            "Wydziały",
+    #            tmp,
+    #            tmp[1])
   })
   
   # basic info for an active court
@@ -266,4 +267,35 @@ shinyServer(function(input, output) {
     }
   })
   
+  
+  
+  
+  
+  #### II. SUPREME COURT TAB
+  
+  output$sc_chamber_out <- renderUI({
+    selectInput("sc_chamber_in", "Wybór izby Sądu Najwyższego",
+                choices = c("Wszystkie", scchambers$name), "Wszystkie")
+  })
+  
+  output$sc_division_out <- renderUI({
+    if (is.null(input$sc_chamber_in)) return()
+    if (input$sc_chamber_in == "Wszystkie") return()
+    tmp <- scchambers$divisions[[which(scchambers$name == input$sc_chamber_in)]]$name
+    selectInput("sc_division_in", "Wybór wydziału",
+                c("Wszystkie", sort(tmp)), "Wszystkie")
+  })
+  
+  
+  output$sc_trends_dygraph <- renderDygraph({
+    return()
+  })
+  
+  output$sc_data_table <- renderDataTable({
+    return()
+  })
+
+
+
+
 })

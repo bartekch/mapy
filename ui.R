@@ -131,7 +131,36 @@ shinyUI(
     
     
     ## tab for supreme court
-    tabPanel("Sąd Najwyższy", "coś tu będzie"),
+    tabPanel(
+      "Sąd Najwyższy", 
+      
+      # tab for showing trends in supreme court
+      
+      sidebarLayout(
+        sidebarPanel(
+          uiOutput("sc_chamber_out"),
+          
+          conditionalPanel(
+            "input.sc_chamber_in != 'Wszystkie'",
+            uiOutput("sc_division_out")
+          )
+        ),
+        
+        mainPanel(
+          tabsetPanel(
+            tabPanel(
+              "Wykresy",
+              dygraphOutput("sc_trends_dygraph")
+            ),
+            
+            tabPanel(
+              "Dane",
+              dataTableOutput("sc_data_table")
+            )
+          )
+        )
+      )
+    ),
     
     
     ## tab for constitutional tribune
