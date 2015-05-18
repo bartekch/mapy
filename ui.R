@@ -72,7 +72,8 @@ shinyUI(
                   conditionalPanel("input.map_type == 'static'",
                                    imageOutput(outputId = "map_plot_static_svg")),
                   conditionalPanel("input.map_type == 'interactive'",
-                                   leafletOutput(outputId = "map_plot_interactive"))
+                                   leafletOutput(outputId = "map_plot_interactive",
+                                                 height = 700))
                 ),
              
                 tabPanel(
@@ -86,7 +87,7 @@ shinyUI(
         
         # tab for showing trends in court
         tabPanel(
-          "Stats",
+          "Statystyki",
           sidebarLayout(
             # quite complicated because it dynamically creates list of courts
             sidebarPanel(
@@ -105,6 +106,7 @@ shinyUI(
               # list available courts
               uiOutput("cc_stats_court"),
               
+              tags$hr(),
               # list available divisions
               uiOutput("cc_stats_division")
             ),
@@ -117,7 +119,7 @@ shinyUI(
                 ),
                 tabPanel(
                   "Wykres",
-                  plotOutput("court_trends"),
+                  #plotOutput("court_trends"),
                   dygraphOutput("court_trends_dygraph")
                 )
               )

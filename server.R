@@ -213,10 +213,14 @@ shinyServer(function(input, output) {
   output$cc_stats_division <- renderUI({
     tmp <- courts[courts$name == input$cc_stats_court, "divisions"]
     if (length(tmp) > 0) tmp <- tmp[[1]]$name
-    selectInput("cc_stats_division",
-                "Wydziały",
-                tmp,
-                tmp[1])
+    HTML(paste(paste0("<h3>", input$cc_stats_court, "</h3>"), 
+               "<b>Lista wydziałów:</b><br/>", 
+               paste(tmp, collapse = "<br/>"), 
+               collapse = "<br/>"))
+#     selectInput("cc_stats_division",
+#                 "Wydziały",
+#                 tmp,
+#                 tmp[1])
   })
   
   # basic info for an active court
@@ -226,8 +230,8 @@ shinyServer(function(input, output) {
     }
     name <- input$cc_stats_court
     id <- courts$id[courts$name == name]
-    data.frame("Co"=c("Liczba sędziów", "Średnia liczba orzeczeń na sędziego"), 
-               "Ile"=c(cc_judges_count$count[cc_judges_count$court_id == id],
+    data.frame("Zmienna"=c("Liczba sędziów", "Średnia liczba orzeczeń na sędziego"), 
+               "Wartość"=c(cc_judges_count$count[cc_judges_count$court_id == id],
                  cc_judges_burden$burden[cc_judges_burden$court_id == id]))
   })
   
@@ -255,7 +259,7 @@ shinyServer(function(input, output) {
     if (nrow(counts) == 0) {
       return()
     } else {
-      counts <- xts(counts$count, order.by = counts$month)
+      counts <- xts(counts$count, order.by = as.yearmon(counts$month))
       dygraph(counts, main = name, xlab = "", ylab = "Liczba orzeczeń") %>%
         dyOptions(drawPoints = TRUE, pointSize = 2, includeZero = TRUE) %>%
         dyRangeSelector()
