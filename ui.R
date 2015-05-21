@@ -138,6 +138,11 @@ shinyUI(
       
       sidebarLayout(
         sidebarPanel(
+          # choose time unit
+          radioButtons("sc_time_unit", "Rozdzielczość czasowa:",
+                       c("roczna" = "year", "miesięczna" = "month"),
+                       inline = TRUE),
+          
           uiOutput("sc_chamber_out"),
           
           conditionalPanel(

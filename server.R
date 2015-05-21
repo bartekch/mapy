@@ -14,7 +14,6 @@ library("dplyr")
 # connect to database
 con <- dbConnect(RSQLite::SQLite(), "data/common_courts.db")
 
-
 ## load essential data
 data(courts)
 count_by_month <- dbReadTable(con, "count_by_month")
@@ -64,7 +63,23 @@ year_month <- apply(year_month[, c(2,1)], 1, paste, collapse = "-")
 
 
 ### load data for supreme courts
+conS <- dbConnect(RSQLite::SQLite(), "data/supreme_court.db")
 data(scchambers, package = "saos")
+sc_data <- list(count = list(year = list(whole = dbReadTable(conS, "count_by_year"),
+                                         chamber = dbReadTable(conS, "count_by_year_by_chamber"),
+                                         div = dbReadTable(conS, "count_by_year_div")),
+                             month = list(whole = dbReadTable(conS, "count_by_month"),
+                                          chamber = dbReadTable(conS, "count_by_month_by_chamber"),
+                                          div = dbReadTable(conS, "count_by_month_div")))
+)
+for (i in 1:3){
+  sc_data$count$month[[i]]$time <- as.yearmon(sc_data$count$month[[i]]$time)
+}
+for (i in 1:3){
+  sc_data$count$year[[i]]$time <- as.integer(sc_data$count$year[[i]]$time)
+}
+
+
 
 # Main server function ----------------------------------------------------
 
@@ -287,12 +302,49 @@ shinyServer(function(input, output) {
   })
   
   
+  prepare_sc_data <- reactive({
+    if (is.null(input$sc_chamber_in)) return()
+    
+    tmp <- sc_data[["count"]][[input$sc_time_unit]]
+    
+    if (input$sc_chamber_in == "Wszystkie") {
+      res <- tmp$whole
+      attr(res, "name") <- "Sąd Najwyższy"
+      return(res)
+    }
+    
+    if (is.null(input$sc_division_in)) return()
+    if (input$sc_division_in == "Wszystkie") {
+      n <- scchambers$id[which(scchambers$name == input$sc_chamber_in)]
+      res <- tmp$chamber[tmp$chamber$chamber == n,]
+      attr(res, "name") <- input$sc_chamber_in
+      return(res)
+    }
+    
+    divs <- scchambers$divisions[[which(scchambers$name == input$sc_chamber_in)]]
+    div <- divs$id[which(divs$name == input$sc_division_in)]
+    res <- tmp$div[tmp$div$division.id == div, ]
+    attr(res, "name") <- divs$fullName[which(divs$name == input$sc_division_in)]
+    return(res)
+  })
+  
   output$sc_trends_dygraph <- renderDygraph({
-    return()
+    data <- prepare_sc_data()
+    if (is.null(data)) return()
+    if (nrow(data) == 0) {
+      return()
+    } else {
+      name <- attr(data, "name")
+      data <- ts(data$count, start = data$time[1],
+                 frequency = ifelse(input$sc_time_unit == "year", 1, 12))
+      dygraph(data, main = name, xlab = "", ylab = "Liczba orzeczeń") %>%
+        dyOptions(drawPoints = TRUE, pointSize = 2, includeZero = TRUE) %>%
+        dyRangeSelector()
+    }
   })
   
   output$sc_data_table <- renderDataTable({
-    return()
+    prepare_sc_data()
   })
 
 
