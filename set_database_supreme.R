@@ -21,3 +21,7 @@ date %>%
 con <- dbConnect(RSQLite::SQLite(), "data/supreme_court.db")
 
 dbWriteTable(con, "judgments", judgments, row.names = FALSE)
+
+judges <- extract(supreme, "judges")
+
+dbWriteTable(con, "judges", judges, row.names = FALSE)

@@ -3,7 +3,9 @@ recalculate_db <- function() {
   library("RSQLite")
   library("lubridate")
   library("tidyr")
+  library("saos")
   
+  ## COMMON COURTS 
   con <- dbConnect(RSQLite::SQLite(), "data/common_courts.db")
   
   
@@ -156,6 +158,79 @@ recalculate_db <- function() {
     group_by(court_id, name) %>%
     summarise(count = n()) -> judges_burden
   dbWriteTable(con, "judges_burden", as.data.frame(judges_burden), overwrite = TRUE)
+  
+  # clean up
+  dbDisconnect(con)
+  
+  
+  
+  
+  
+  ## SUPREME COURT 
+  
+  con <- dbConnect(RSQLite::SQLite(), "data/supreme_court.db")
+  
+  judgments <- dbReadTable(con, "judgments")
+  judgments$month <- substr(judgments$judgmentDate, 1, 7)
+  judgments$year <- substr(judgments$judgmentDate, 1, 4)
+  
+  # summarise number of judgments in each division by month
+  judgments %>%
+    group_by(division.id, month) %>%
+    summarise(count = n())  %>% 
+    ungroup()  %>% 
+    rename(time = month) -> count_by_month_by_division
+  tmp <- expand(count_by_month_by_division, division.id, time)
+  count_by_month_by_division <- left_join(tmp, count_by_month_by_division, 
+                                          by = c("division.id", "time"))
+  dbWriteTable(con, "count_by_month_div", as.data.frame(count_by_month_by_division), overwrite = TRUE)
+  
+  # summarise number of judgments in each division by year
+  judgments %>%
+    group_by(division.id, year) %>%
+    summarise(count = n())  %>% 
+    ungroup()  %>% 
+    rename(time = year) -> count_by_year_by_division
+  tmp <- expand(count_by_year_by_division, division.id, time)
+  count_by_year_by_division <- left_join(tmp, count_by_year_by_division, 
+                                          by = c("division.id", "time"))
+  dbWriteTable(con, "count_by_year_div", as.data.frame(count_by_year_by_division), overwrite = TRUE)
+  
+  # add chambers
+  data(scchambers)
+  divs <- data.frame(chamber = rep(scchambers$id, times = sapply(scchambers$divisions, nrow)),
+                     division = unlist(sapply(scchambers$divisions, `[[`, "id")))
+  
+  count_by_month_by_division  %>%  
+    inner_join(divs, by = c("division.id" = "division")) %>%
+    group_by(chamber, time) %>%
+    summarise(count = sum(count, na.rm = TRUE))  %>% 
+    ungroup() -> count_by_month
+  
+  dbWriteTable(con, "count_by_month_by_chamber", as.data.frame(count_by_month), overwrite = TRUE)
+  
+  count_by_year_by_division  %>%  
+    inner_join(divs, by = c("division.id" = "division")) %>%
+    group_by(chamber, time) %>%
+    summarise(count = sum(count, na.rm = TRUE))  %>% 
+    ungroup() -> count_by_year
+  
+  dbWriteTable(con, "count_by_year_by_chamber", as.data.frame(count_by_year), overwrite = TRUE)
+
+  # whole Supreme Court
+  count_by_month  %>%  
+    group_by(time) %>%
+    summarise(count = sum(count, na.rm = TRUE))  %>% 
+    ungroup() -> count_by_month
+  
+  dbWriteTable(con, "count_by_month", as.data.frame(count_by_month), overwrite = TRUE)
+  
+  count_by_year  %>%  
+    group_by(time) %>%
+    summarise(count = sum(count, na.rm = TRUE))  %>% 
+    ungroup() -> count_by_year
+  
+  dbWriteTable(con, "count_by_year", as.data.frame(count_by_year), overwrite = TRUE)
   
   # clean up
   dbDisconnect(con)
