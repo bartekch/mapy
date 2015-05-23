@@ -143,6 +143,10 @@ shinyUI(
                        c("roczna" = "year", "miesięczna" = "month"),
                        inline = TRUE),
           
+          checkboxInput("sc_plot_type", 
+                        "Podział na rodzaje składu sędziowskiego",
+                        FALSE),
+          
           uiOutput("sc_chamber_out"),
           
           conditionalPanel(

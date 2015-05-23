@@ -331,12 +331,31 @@ shinyServer(function(input, output) {
   output$sc_trends_dygraph <- renderDygraph({
     data <- prepare_sc_data()
     if (is.null(data)) return()
+    
+    name <- attr(data, "name")
+    data <- mutate(data,
+                  time = if (input$sc_time_unit == "year") {
+                    as.Date(time, format = "%Y")
+                  } else {
+                    as.yearmon(time)
+                    })
+    
+    if (input$sc_plot_type) {
+      data <- select(data, -total)
+      data <- rename(data,
+                     "cała izba" = ALL_CHAMBER,
+                     "pięcioosobowy" = FIVE_PERSON,
+                     "jednoosobowy" = ONE_PERSON,
+                     "siedmioosobowy" = SEVEN_PERSON,
+                     "trzyosobowy" = THREE_PERSON,
+                     "nieznany" = unknown)
+    } else {
+      data <- select(data, time, total)
+    }
     if (nrow(data) == 0) {
       return()
     } else {
-      name <- attr(data, "name")
-      data <- ts(data$count, start = data$time[1],
-                 frequency = ifelse(input$sc_time_unit == "year", 1, 12))
+      data <- xts(select(data, -one_of("time", "division.id", "chamber")), order.by = data$time)
       dygraph(data, main = name, xlab = "", ylab = "Liczba orzeczeń") %>%
         dyOptions(drawPoints = TRUE, pointSize = 2, includeZero = TRUE) %>%
         dyRangeSelector()

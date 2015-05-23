@@ -1,4 +1,5 @@
 recalculate_db <- function() {
+  library("reshape2")
   library("dplyr")
   library("RSQLite")
   library("lubridate")
@@ -171,29 +172,39 @@ recalculate_db <- function() {
   con <- dbConnect(RSQLite::SQLite(), "data/supreme_court.db")
   
   judgments <- dbReadTable(con, "judgments")
-  judgments$month <- substr(judgments$judgmentDate, 1, 7)
-  judgments$year <- substr(judgments$judgmentDate, 1, 4)
+  judgments %>%
+    mutate(month = substr(judgmentDate, 1, 7),
+           year = substr(judgmentDate, 1, 4),
+           personnel = personnelType) -> judgments
   
   # summarise number of judgments in each division by month
   judgments %>%
-    group_by(division.id, month) %>%
+    group_by(division.id, month, personnel) %>%
     summarise(count = n())  %>% 
     ungroup()  %>% 
     rename(time = month) -> count_by_month_by_division
   tmp <- expand(count_by_month_by_division, division.id, time)
-  count_by_month_by_division <- left_join(tmp, count_by_month_by_division, 
-                                          by = c("division.id", "time"))
+  tmp %>%
+    left_join(count_by_month_by_division, by = c("division.id", "time")) %>%
+    mutate(personnel = ifelse(is.na(personnel), "unknown", personnel)) %>%
+    dcast(division.id + time ~ personnel, value.var = "count", fill = NA) ->
+    count_by_month_by_division
+  count_by_month_by_division$total <- rowSums(count_by_month_by_division[,3:8], na.rm = TRUE)
   dbWriteTable(con, "count_by_month_div", as.data.frame(count_by_month_by_division), overwrite = TRUE)
   
   # summarise number of judgments in each division by year
   judgments %>%
-    group_by(division.id, year) %>%
+    group_by(division.id, year, personnel) %>%
     summarise(count = n())  %>% 
     ungroup()  %>% 
     rename(time = year) -> count_by_year_by_division
   tmp <- expand(count_by_year_by_division, division.id, time)
-  count_by_year_by_division <- left_join(tmp, count_by_year_by_division, 
-                                          by = c("division.id", "time"))
+  tmp %>%
+    left_join(count_by_year_by_division, by = c("division.id", "time")) %>%
+    mutate(personnel = ifelse(is.na(personnel), "unknown", personnel)) %>%
+    dcast(division.id + time ~ personnel, value.var = "count", fill = NA) ->
+    count_by_year_by_division
+  count_by_year_by_division$total <- rowSums(count_by_year_by_division[,3:8], na.rm = TRUE)
   dbWriteTable(con, "count_by_year_div", as.data.frame(count_by_year_by_division), overwrite = TRUE)
   
   # add chambers
@@ -202,9 +213,15 @@ recalculate_db <- function() {
                      division = unlist(sapply(scchambers$divisions, `[[`, "id")))
   
   count_by_month_by_division  %>%  
-    inner_join(divs, by = c("division.id" = "division")) %>%
+    left_join(divs, by = c("division.id" = "division")) %>%
     group_by(chamber, time) %>%
-    summarise(count = sum(count, na.rm = TRUE))  %>% 
+    summarise(ALL_CHAMBER = sum(ALL_CHAMBER, na.rm = TRUE),
+              FIVE_PERSON = sum(FIVE_PERSON, na.rm = TRUE),
+              ONE_PERSON = sum(ONE_PERSON, na.rm = TRUE),
+              SEVEN_PERSON = sum(SEVEN_PERSON, na.rm = TRUE),
+              THREE_PERSON = sum(THREE_PERSON, na.rm = TRUE),
+              unknown = sum(unknown, na.rm = TRUE),
+              total = sum(total, na.rm = TRUE))  %>% 
     ungroup() -> count_by_month
   
   dbWriteTable(con, "count_by_month_by_chamber", as.data.frame(count_by_month), overwrite = TRUE)
@@ -212,7 +229,13 @@ recalculate_db <- function() {
   count_by_year_by_division  %>%  
     inner_join(divs, by = c("division.id" = "division")) %>%
     group_by(chamber, time) %>%
-    summarise(count = sum(count, na.rm = TRUE))  %>% 
+    summarise(ALL_CHAMBER = sum(ALL_CHAMBER, na.rm = TRUE),
+              FIVE_PERSON = sum(FIVE_PERSON, na.rm = TRUE),
+              ONE_PERSON = sum(ONE_PERSON, na.rm = TRUE),
+              SEVEN_PERSON = sum(SEVEN_PERSON, na.rm = TRUE),
+              THREE_PERSON = sum(THREE_PERSON, na.rm = TRUE),
+              unknown = sum(unknown, na.rm = TRUE),
+              total = sum(total, na.rm = TRUE))  %>% 
     ungroup() -> count_by_year
   
   dbWriteTable(con, "count_by_year_by_chamber", as.data.frame(count_by_year), overwrite = TRUE)
@@ -220,14 +243,26 @@ recalculate_db <- function() {
   # whole Supreme Court
   count_by_month  %>%  
     group_by(time) %>%
-    summarise(count = sum(count, na.rm = TRUE))  %>% 
+    summarise(ALL_CHAMBER = sum(ALL_CHAMBER, na.rm = TRUE),
+              FIVE_PERSON = sum(FIVE_PERSON, na.rm = TRUE),
+              ONE_PERSON = sum(ONE_PERSON, na.rm = TRUE),
+              SEVEN_PERSON = sum(SEVEN_PERSON, na.rm = TRUE),
+              THREE_PERSON = sum(THREE_PERSON, na.rm = TRUE),
+              unknown = sum(unknown, na.rm = TRUE),
+              total = sum(total, na.rm = TRUE))  %>% 
     ungroup() -> count_by_month
   
   dbWriteTable(con, "count_by_month", as.data.frame(count_by_month), overwrite = TRUE)
   
   count_by_year  %>%  
     group_by(time) %>%
-    summarise(count = sum(count, na.rm = TRUE))  %>% 
+    summarise(ALL_CHAMBER = sum(ALL_CHAMBER, na.rm = TRUE),
+              FIVE_PERSON = sum(FIVE_PERSON, na.rm = TRUE),
+              ONE_PERSON = sum(ONE_PERSON, na.rm = TRUE),
+              SEVEN_PERSON = sum(SEVEN_PERSON, na.rm = TRUE),
+              THREE_PERSON = sum(THREE_PERSON, na.rm = TRUE),
+              unknown = sum(unknown, na.rm = TRUE),
+              total = sum(total, na.rm = TRUE))  %>% 
     ungroup() -> count_by_year
   
   dbWriteTable(con, "count_by_year", as.data.frame(count_by_year), overwrite = TRUE)
