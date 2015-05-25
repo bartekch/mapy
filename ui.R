@@ -2,7 +2,7 @@
 shinyUI(
   navbarPage(
     # page title
-    "Trendy",
+    "",
     
     ## tab with common courts -> another tabs are nested
     tabPanel(
@@ -70,10 +70,11 @@ shinyUI(
                 tabPanel(
                   "Mapa",
                   conditionalPanel("input.map_type == 'static'",
-                                   imageOutput(outputId = "map_plot_static_svg")),
+                                   imageOutput(outputId = "map_plot_static_svg",
+                                               width = "700px", height = "700px")),
                   conditionalPanel("input.map_type == 'interactive'",
                                    leafletOutput(outputId = "map_plot_interactive",
-                                                 height = 700))
+                                                 height = "700px"))
                 ),
              
                 tabPanel(

@@ -174,11 +174,11 @@ shinyServer(function(input, output) {
     } else if (all(is.na(map_data@data$variable))) {
       plot(map_data)
     } else {
-      print(spplot(map_data, zcol = "variable"))
+      print(spplot(map_data, zcol = "variable", col.regions = myPalette(seq(1,0,length = 100))))
     }
     dev.off()
     filename <- normalizePath(file.path(outfile))
-    list(src = filename, alt = "", width = 500, height = 500)
+    list(src = filename, alt = "", width = 700, height = 700)
   }, deleteFile = TRUE)
 
   # interactive plot
@@ -284,10 +284,11 @@ shinyServer(function(input, output) {
     name <- input$cc_stats_court
     id <- courts$id[courts$name == name]
     counts <- count_by_month[count_by_month$court_id == id, c("month", "count")]
+    counts <- rename(counts, "liczba" = count)
     if (nrow(counts) == 0) {
       return()
     } else {
-      counts <- xts(counts$count, order.by = as.yearmon(counts$month))
+      counts <- xts(select(counts, liczba), order.by = as.yearmon(counts$month))
       dygraph(counts, main = name, xlab = "", ylab = "Liczba orzeczeń") %>%
         dyOptions(drawPoints = TRUE, pointSize = 2, includeZero = TRUE) %>%
         dyRangeSelector()
@@ -363,6 +364,7 @@ shinyServer(function(input, output) {
                      "nieznany" = unknown)
     } else {
       data <- select(data, time, total)
+      data <- rename(data, "liczba" = total)
     }
     if (nrow(data) == 0) {
       return()
@@ -401,11 +403,11 @@ shinyServer(function(input, output) {
                    } else {
                      as.yearmon(time)
                    })
-    
+    data <- rename(data, "liczba" = count)
     if (nrow(data) == 0) {
       return()
     } else {
-      data <- xts(select(data, count), order.by = data$time)
+      data <- xts(select(data, liczba), order.by = data$time)
       dygraph(data, main = "Trybunał Konstytucyjny", xlab = "", ylab = "Liczba orzeczeń") %>%
         dyOptions(drawPoints = TRUE, pointSize = 2, includeZero = TRUE) %>%
         dyRangeSelector()
@@ -420,7 +422,7 @@ shinyServer(function(input, output) {
   
   
   
-  #### III. CONSTITUTIONAL TRIBUNAL TAB
+  #### IV. NATIONAL APPEAL CHAMBER TAB
   
   prepare_nac_data <- reactive({
     if (is.null(input$nac_time_unit)) return()
@@ -439,11 +441,11 @@ shinyServer(function(input, output) {
                    } else {
                      as.yearmon(time)
                    })
-    
+    data <- rename(data, "liczba" = count)
     if (nrow(data) == 0) {
       return()
     } else {
-      data <- xts(select(data, count), order.by = data$time)
+      data <- xts(select(data, liczba), order.by = data$time)
       dygraph(data, main = "Krajowa Izba Odwoławcza", xlab = "", ylab = "Liczba orzeczeń") %>%
         dyOptions(drawPoints = TRUE, pointSize = 2, includeZero = TRUE) %>%
         dyRangeSelector()

@@ -9,7 +9,7 @@ dates_end <- (dates_start - 1)[-1]
 dates_start <- head(dates_start, -1)
 
 dat <- vector("list", length(dates_start))
-for (i in 245:256) {
+for (i in 1:256) {
   dat[[i]] <- get_dump_judgments(judgmentStartDate = dates_start[i], 
                                  judgmentEndDate = dates_end[i],
                                  verbose = TRUE)
