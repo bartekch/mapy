@@ -302,4 +302,36 @@ recalculate_db <- function() {
   dbDisconnect(con)
   
   
+  
+  
+  
+  
+  ## NATONAL APPEAL CHAMBER
+  
+  con <- dbConnect(RSQLite::SQLite(), "data/national_appeal_chamber.db")
+  
+  judgments <- dbReadTable(con, "judgments")
+  judgments %>%
+    mutate(month = substr(judgmentDate, 1, 7),
+           year = substr(judgmentDate, 1, 4)) -> judgments
+  
+  # summarise number of judgments by month
+  judgments %>%
+    group_by(month) %>%
+    summarise(count = n())  %>% 
+    ungroup()  %>% 
+    rename(time = month) -> count_by_month
+  dbWriteTable(con, "count_by_month", as.data.frame(count_by_month), overwrite = TRUE)
+  
+  # summarise number of judgments by year
+  judgments %>%
+    group_by(year) %>%
+    summarise(count = n())  %>% 
+    ungroup()  %>% 
+    rename(time = year) -> count_by_year
+  dbWriteTable(con, "count_by_year", as.data.frame(count_by_year), overwrite = TRUE)
+  
+  # clean up
+  dbDisconnect(con)
+  
 }

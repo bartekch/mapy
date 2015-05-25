@@ -175,7 +175,6 @@ shinyUI(
     ## tab for constitutional tribune
     tabPanel(
       "Trybunał Konstytucyjny",
-      # tab for showing trends in supreme court
       
       sidebarLayout(
         sidebarPanel(
@@ -195,6 +194,35 @@ shinyUI(
             tabPanel(
               "Dane",
               dataTableOutput("ct_data_table")
+            )
+          )
+        )
+      )
+    ),
+    
+    
+    ## tab for national appeal chamber
+    tabPanel(
+      "Krajowa Izba Odwoławcza",
+      
+      sidebarLayout(
+        sidebarPanel(
+          # choose time unit
+          radioButtons("nac_time_unit", "Rozdzielczość czasowa:",
+                       c("roczna" = "year", "miesięczna" = "month"),
+                       inline = TRUE)
+        ),
+        
+        mainPanel(
+          tabsetPanel(
+            tabPanel(
+              "Wykresy",
+              dygraphOutput("nac_trends_dygraph")
+            ),
+            
+            tabPanel(
+              "Dane",
+              dataTableOutput("nac_data_table")
             )
           )
         )

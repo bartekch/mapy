@@ -86,6 +86,12 @@ ct_data <- list(year = dbReadTable(conT, "count_by_year"),
 ct_data$month$time <- as.yearmon(ct_data$month$time)
 
 
+### load data for constitutional tribunal
+conA <- dbConnect(RSQLite::SQLite(), "data/national_appeal_chamber.db")
+nac_data <- list(year = dbReadTable(conA, "count_by_year"),
+                month = dbReadTable(conA, "count_by_month"))
+nac_data$month$time <- as.yearmon(nac_data$month$time)
+
 
 # Main server function ----------------------------------------------------
 
@@ -410,5 +416,42 @@ shinyServer(function(input, output) {
     prepare_ct_data()
   })
   
+  
+  
+  
+  
+  #### III. CONSTITUTIONAL TRIBUNAL TAB
+  
+  prepare_nac_data <- reactive({
+    if (is.null(input$nac_time_unit)) return()
+    
+    res <- nac_data[[input$nac_time_unit]]
+    return(res)
+  })
+  
+  output$nac_trends_dygraph <- renderDygraph({
+    data <- prepare_nac_data()
+    if (is.null(data)) return()
+    
+    data <- mutate(data,
+                   time = if (input$nac_time_unit == "year") {
+                     as.Date(time, format = "%Y")
+                   } else {
+                     as.yearmon(time)
+                   })
+    
+    if (nrow(data) == 0) {
+      return()
+    } else {
+      data <- xts(select(data, count), order.by = data$time)
+      dygraph(data, main = "Krajowa Izba Odwoławcza", xlab = "", ylab = "Liczba orzeczeń") %>%
+        dyOptions(drawPoints = TRUE, pointSize = 2, includeZero = TRUE) %>%
+        dyRangeSelector()
+    }
+  })
+  
+  output$nac_data_table <- renderDataTable({
+    prepare_nac_data()
+  })
 
 })
