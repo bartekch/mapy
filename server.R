@@ -75,9 +75,15 @@ sc_data <- list(count = list(year = list(whole = dbReadTable(conS, "count_by_yea
 for (i in 1:3){
   sc_data$count$month[[i]]$time <- as.yearmon(sc_data$count$month[[i]]$time)
 }
-for (i in 1:3){
-  sc_data$count$year[[i]]$time <- as.integer(sc_data$count$year[[i]]$time)
-}
+
+
+
+
+### load data for constitutional tribunal
+conT <- dbConnect(RSQLite::SQLite(), "data/constitutional_tribunal.db")
+ct_data <- list(year = dbReadTable(conT, "count_by_year"),
+                month = dbReadTable(conT, "count_by_month"))
+ct_data$month$time <- as.yearmon(ct_data$month$time)
 
 
 
@@ -367,6 +373,42 @@ shinyServer(function(input, output) {
   })
 
 
-
+  
+  
+  
+  #### III. CONSTITUTIONAL TRIBUNAL TAB
+  
+  prepare_ct_data <- reactive({
+    if (is.null(input$ct_time_unit)) return()
+    
+    res <- ct_data[[input$ct_time_unit]]
+    return(res)
+  })
+  
+  output$ct_trends_dygraph <- renderDygraph({
+    data <- prepare_ct_data()
+    if (is.null(data)) return()
+    
+    data <- mutate(data,
+                   time = if (input$ct_time_unit == "year") {
+                     as.Date(time, format = "%Y")
+                   } else {
+                     as.yearmon(time)
+                   })
+    
+    if (nrow(data) == 0) {
+      return()
+    } else {
+      data <- xts(select(data, count), order.by = data$time)
+      dygraph(data, main = "Trybunał Konstytucyjny", xlab = "", ylab = "Liczba orzeczeń") %>%
+        dyOptions(drawPoints = TRUE, pointSize = 2, includeZero = TRUE) %>%
+        dyRangeSelector()
+    }
+  })
+  
+  output$ct_data_table <- renderDataTable({
+    prepare_ct_data()
+  })
+  
 
 })

@@ -173,7 +173,33 @@ shinyUI(
     
     
     ## tab for constitutional tribune
-    tabPanel("Trybunał Konstytucyjny", "coś tu będzie")
+    tabPanel(
+      "Trybunał Konstytucyjny",
+      # tab for showing trends in supreme court
+      
+      sidebarLayout(
+        sidebarPanel(
+          # choose time unit
+          radioButtons("ct_time_unit", "Rozdzielczość czasowa:",
+                       c("roczna" = "year", "miesięczna" = "month"),
+                       inline = TRUE)
+        ),
+        
+        mainPanel(
+          tabsetPanel(
+            tabPanel(
+              "Wykresy",
+              dygraphOutput("ct_trends_dygraph")
+            ),
+            
+            tabPanel(
+              "Dane",
+              dataTableOutput("ct_data_table")
+            )
+          )
+        )
+      )
+    )
   )
 )
 
