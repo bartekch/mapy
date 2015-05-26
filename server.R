@@ -40,12 +40,27 @@ normalise <- function(vector) {
 }
 # function for creating leaflet
 plot_leaflet <- function(shp) {
-  #popups <- paste(shp@data[name][,1], shp@data$count, sep = ", ")
+  if (any(names(shp@data) == "appeal_name")) {
+    shp@data <- rename(shp@data, name = appeal_name)
+  } else {
+    shp@data <- rename(shp@data, name = region_name)
+  }
+  #shp@data <- rename(shp@data, "name" = one_of("appeal_name", "region_name"))
+  pal <- colorNumeric(
+    palette = "Blues",
+    domain = shp@data$variable
+  )
+  popups <- paste(shp@data$name, shp@data$variable, sep = ", ")
   leaflet(data = shp) %>% addTiles() %>%
-    addPolygons(fillColor = myPalette(normalise(shp@data$variable)),
+    addPolygons(fillColor = ~pal(variable),
+      #fillColor = myPalette(normalise(shp@data$variable)),
                 fillOpacity = 0.7,
-                stroke = TRUE, color = "black", weight = 3)
-                #popup = popups)
+                stroke = TRUE, color = "black", 
+      popup = popups,
+      weight = 2) %>%
+    addLegend("topright", pal = pal, values = ~variable,
+              title = ""
+    )
 }
 
 
@@ -174,7 +189,15 @@ shinyServer(function(input, output) {
     } else if (all(is.na(map_data@data$variable))) {
       plot(map_data)
     } else {
-      print(spplot(map_data, zcol = "variable", col.regions = myPalette(seq(1,0,length = 100))))
+      map_data@data$variable[is.na(map_data@data$variable)] <- 0
+      pal <- colorNumeric(
+        palette = "Blues",
+        domain = map_data@data$variable
+      )
+      print(spplot(map_data, zcol = "variable", 
+                   col.regions = pal(seq(from = min(map_data@data$variable), 
+                                         to = max(map_data@data$variable),
+                                         length = 100))))
     }
     dev.off()
     filename <- normalizePath(file.path(outfile))
